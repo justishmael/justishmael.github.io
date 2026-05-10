@@ -107,7 +107,7 @@ private fun PersonalLandingPage() {
                 Spacer(modifier = Modifier.height(24.dp))
 
                 Text(
-                    text = "I build calm, structured software for people, data, and systems. My work is guided by clarity, accessibility, and the belief that good tools should reduce friction rather than add more noise.",
+                    text = "I’m an autistic developer and data analyst interested in building calm, accessible systems for people and communities.\n\nMy work focuses on Kotlin development, data analysis, AI-assisted tooling, and software that reduces friction and cognitive overload.",
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.88f),
                     fontSize = 18.sp,
                     lineHeight = 30.sp,
@@ -130,6 +130,14 @@ private fun PersonalLandingPage() {
                 Spacer(modifier = Modifier.height(30.dp))
 
                 ContactLinks()
+
+                Spacer(modifier = Modifier.height(34.dp))
+
+                SectionDivider()
+
+                Spacer(modifier = Modifier.height(26.dp))
+
+                AboutSection()
             }
         }
     }
@@ -195,6 +203,38 @@ private fun ContactButton(
             text = label,
             fontSize = 15.sp,
             fontWeight = FontWeight.SemiBold,
+        )
+    }
+}
+
+@Composable
+private fun SectionDivider() {
+    Box(
+        modifier =
+            Modifier
+                .height(1.dp)
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.24f))
+                .widthIn(min = 80.dp, max = 680.dp),
+    )
+}
+
+@Composable
+private fun AboutSection() {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Text(
+            text = "About",
+            color = MaterialTheme.colorScheme.secondary,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+        )
+
+        Text(
+            text = "I’m also interested in indie game development, voxel systems, and sandbox spaces like Minecraft that encourage creativity, collaboration, and building joy.\n\nI enjoy projects that sit between technical depth, thoughtful design, and human experience.",
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.86f),
+            fontSize = 16.sp,
+            lineHeight = 26.sp,
         )
     }
 }
