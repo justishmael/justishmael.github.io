@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -115,6 +116,14 @@ data class PlantSegment(
     val level: Int,
 )
 
+@Immutable
+private data class PlantViewport(
+    val left: Float,
+    val right: Float,
+    val top: Float,
+    val bottom: Float,
+)
+
 enum class SegmentKind {
     Stem,
     Leaf,
@@ -163,8 +172,9 @@ private fun PersonalLandingPage() {
         )
 
         BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-            val isCompact = maxWidth < 980.dp
-            if (isCompact) {
+            val isStacked = maxWidth < 1040.dp
+            val isMobile = maxWidth < 760.dp
+            if (isStacked) {
                 Column(
                     modifier =
                         Modifier
@@ -175,13 +185,13 @@ private fun PersonalLandingPage() {
                 ) {
                     IdentityGlassPanel(
                         modifier = Modifier.fillMaxWidth(),
-                        compact = true,
+                        compact = isMobile,
                     )
                     GrowthLabStage(
                         modifier =
                             Modifier
                                 .fillMaxWidth()
-                                .heightIn(min = 680.dp),
+                                .heightIn(min = if (isMobile) 860.dp else 780.dp),
                         compact = true,
                     )
                 }
@@ -516,7 +526,7 @@ private fun GrowthLabStage(
         pulse.animateTo(0f, animationSpec = tween(900))
     }
 
-    Box(
+    BoxWithConstraints(
         modifier =
             modifier
                 .clip(PanelShape)
@@ -539,60 +549,144 @@ private fun GrowthLabStage(
                     ),
         )
 
-        Column(
-            modifier = Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 18.dp),
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top,
+        val stageNarrow = compact || maxWidth < 780.dp
+        if (compact) {
+            val mobileCanvasHeight =
+                when {
+                    maxWidth < 420.dp -> 430.dp
+                    maxWidth < 600.dp -> 480.dp
+                    else -> 520.dp
+                }
+            Column(
+                modifier = Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 18.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(
-                        text = "Growth Lab",
-                        color = MaterialTheme.colorScheme.primary,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        letterSpacing = 1.2.sp,
-                    )
-                    Text(
-                        text = "Balance light, water, and structure.",
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontSize = 20.sp,
-                        lineHeight = 26.sp,
-                        fontWeight = FontWeight.Bold,
+                if (stageNarrow) {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        GrowthLabHeader()
+                        GrowthSummary(
+                            state = growthState,
+                            harmony = harmony,
+                            readout = readout,
+                            alignEnd = false,
+                        )
+                    }
+                } else {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.Top,
+                    ) {
+                        GrowthLabHeader()
+                        GrowthSummary(
+                            state = growthState,
+                            harmony = harmony,
+                            readout = readout,
+                            alignEnd = true,
+                        )
+                    }
+                }
+
+                Box(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(if (stageNarrow) mobileCanvasHeight else 520.dp)
+                            .heightIn(min = 420.dp)
+                            .padding(bottom = 4.dp),
+                ) {
+                    GrowthCanvas(
+                        state = growthState,
+                        idlePhase = idlePhase,
+                        drift = drift,
+                        actionPulse = pulse.value,
+                        modifier = Modifier.fillMaxSize(),
                     )
                 }
-                GrowthSummary(state = growthState, harmony = harmony, readout = readout)
+
+                GrowthControls(
+                    compact = compact,
+                    state = growthState,
+                    maxItemsInEachRow = if (stageNarrow) 2 else 3,
+                    onAction = { action ->
+                        growthState =
+                            when (action) {
+                                GrowthAction.AddLight -> growthState.adjust(light = 1, water = 0, structure = -1, action = action)
+                                GrowthAction.AddWater -> growthState.adjust(light = -1, water = 1, structure = 0, action = action)
+                                GrowthAction.PruneStructure -> growthState.adjust(light = 0, water = -1, structure = 1, action = action)
+                                GrowthAction.Analyze -> growthState.copy(lastAction = action, actionCount = growthState.actionCount + 1)
+                                GrowthAction.ResetGarden -> GrowthState(seed = growthState.seed + 17, lastAction = action)
+                            }
+                    },
+                )
             }
+        } else {
+            Column(
+                modifier = Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 18.dp),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    GrowthLabHeader()
+                    GrowthSummary(
+                        state = growthState,
+                        harmony = harmony,
+                        readout = readout,
+                        alignEnd = true,
+                    )
+                }
 
-            GrowthCanvas(
-                state = growthState,
-                idlePhase = idlePhase,
-                drift = drift,
-                actionPulse = pulse.value,
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
-                        .padding(top = 12.dp, bottom = 16.dp),
-            )
+                GrowthCanvas(
+                    state = growthState,
+                    idlePhase = idlePhase,
+                    drift = drift,
+                    actionPulse = pulse.value,
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                            .padding(top = 12.dp, bottom = 16.dp),
+                )
 
-            GrowthControls(
-                compact = compact,
-                state = growthState,
-                onAction = { action ->
-                    growthState =
-                        when (action) {
-                            GrowthAction.AddLight -> growthState.adjust(light = 1, water = 0, structure = -1, action = action)
-                            GrowthAction.AddWater -> growthState.adjust(light = -1, water = 1, structure = 0, action = action)
-                            GrowthAction.PruneStructure -> growthState.adjust(light = 0, water = -1, structure = 1, action = action)
-                            GrowthAction.Analyze -> growthState.copy(lastAction = action, actionCount = growthState.actionCount + 1)
-                            GrowthAction.ResetGarden -> GrowthState(seed = growthState.seed + 17, lastAction = action)
-                        }
-                },
-            )
+                GrowthControls(
+                    compact = compact,
+                    state = growthState,
+                    maxItemsInEachRow = 5,
+                    onAction = { action ->
+                        growthState =
+                            when (action) {
+                                GrowthAction.AddLight -> growthState.adjust(light = 1, water = 0, structure = -1, action = action)
+                                GrowthAction.AddWater -> growthState.adjust(light = -1, water = 1, structure = 0, action = action)
+                                GrowthAction.PruneStructure -> growthState.adjust(light = 0, water = -1, structure = 1, action = action)
+                                GrowthAction.Analyze -> growthState.copy(lastAction = action, actionCount = growthState.actionCount + 1)
+                                GrowthAction.ResetGarden -> GrowthState(seed = growthState.seed + 17, lastAction = action)
+                            }
+                    },
+                )
+            }
         }
+    }
+}
+
+@Composable
+private fun GrowthLabHeader() {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(
+            text = "Growth Lab",
+            color = MaterialTheme.colorScheme.primary,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold,
+            letterSpacing = 1.2.sp,
+        )
+        Text(
+            text = "Balance light, water, and structure.",
+            color = MaterialTheme.colorScheme.onSurface,
+            fontSize = 20.sp,
+            lineHeight = 26.sp,
+            fontWeight = FontWeight.Bold,
+        )
     }
 }
 
@@ -601,6 +695,7 @@ private fun GrowthSummary(
     state: GrowthState,
     harmony: Int,
     readout: String,
+    alignEnd: Boolean,
 ) {
     val summary = "Harmony $harmony percent. Light ${state.light}, water ${state.water}, structure ${state.structure}. $readout"
 
@@ -618,7 +713,7 @@ private fun GrowthSummary(
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-            horizontalAlignment = Alignment.End,
+            horizontalAlignment = if (alignEnd) Alignment.End else Alignment.Start,
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(
@@ -700,8 +795,8 @@ private fun DrawScope.drawGrowthCanvas(
     drift: Float,
     actionPulse: Float,
 ) {
-    val plant = generatePlant(state, size.width, size.height)
-    val soilY = size.height * 0.86f
+    val viewport = plantViewport(size.width, size.height)
+    val plant = generatePlant(state, viewport)
     val harmony = harmonyScore(state)
     val healthyTint = blend(Color(0xFF6E946C), Color(0xFF92E3A8), harmony / 100f)
     val glowCenter = Offset(size.width * (0.56f + drift * 0.04f), size.height * (0.38f + drift * 0.015f))
@@ -731,12 +826,12 @@ private fun DrawScope.drawGrowthCanvas(
         center = glowCenter,
     )
 
-    drawGrid(soilY, idleWave)
+    drawGrid(viewport, idleWave)
 
     drawLine(
         color = Color(0xFF486757),
-        start = Offset(size.width * 0.08f, soilY),
-        end = Offset(size.width * 0.92f, soilY),
+        start = Offset(viewport.left, viewport.bottom),
+        end = Offset(viewport.right, viewport.bottom),
         strokeWidth = 3.2f,
         cap = StrokeCap.Round,
     )
@@ -787,29 +882,31 @@ private fun DrawScope.drawGrowthCanvas(
 }
 
 private fun DrawScope.drawGrid(
-    soilY: Float,
+    viewport: PlantViewport,
     idleWave: Float,
 ) {
     val lineColor = Color(0xFF243A2E)
-    val columnWidth = size.width / 6f
-    var currentX = columnWidth
+    val safeWidth = viewport.right - viewport.left
+    val safeHeight = viewport.bottom - viewport.top
+    val columnWidth = safeWidth / 6f
+    var currentX = viewport.left + columnWidth
     repeat(5) {
         drawLine(
             color = lineColor.copy(alpha = 0.22f),
-            start = Offset(currentX, size.height * 0.08f),
-            end = Offset(currentX, soilY - 10f + idleWave * 1.2f),
+            start = Offset(currentX, viewport.top),
+            end = Offset(currentX, viewport.bottom - 10f + idleWave * 1.2f),
             strokeWidth = 1f,
         )
         currentX += columnWidth
     }
 
-    val rowHeight = (soilY - size.height * 0.12f) / 4f
-    var currentY = size.height * 0.16f
+    val rowHeight = safeHeight / 4f
+    var currentY = viewport.top + rowHeight * 0.6f
     repeat(4) {
         drawLine(
             color = lineColor.copy(alpha = 0.18f),
-            start = Offset(size.width * 0.08f, currentY + idleWave * 1.5f),
-            end = Offset(size.width * 0.92f, currentY + idleWave * 1.5f),
+            start = Offset(viewport.left, currentY + idleWave * 1.5f),
+            end = Offset(viewport.right, currentY + idleWave * 1.5f),
             strokeWidth = 1f,
         )
         currentY += rowHeight
@@ -849,16 +946,20 @@ private fun DrawScope.drawLeaf(
 
 private fun generatePlant(
     state: GrowthState,
-    width: Float,
-    height: Float,
+    viewport: PlantViewport,
 ): List<PlantSegment> {
     val segments = mutableListOf<PlantSegment>()
-    val soilY = height * 0.86f
-    val base = Offset(width * 0.5f, soilY)
+    val safeWidth = viewport.right - viewport.left
+    val safeHeight = viewport.bottom - viewport.top
+    val compactCanvas = safeHeight < 360f || safeWidth < 420f
+    val soilY = viewport.bottom
+    val base = Offset((viewport.left + viewport.right) * 0.5f, soilY)
     val harmony = harmonyScore(state) / 100f
     val imbalanceX = ((state.light - state.water) * 0.045f).coerceIn(-0.16f, 0.16f)
-    val trunkLength = height * (0.36f + state.light * 0.04f + harmony * 0.1f).coerceIn(0.34f, 0.62f)
-    val rootLength = width * (0.11f + state.structure * 0.02f)
+    val trunkBase = if (compactCanvas) 0.30f else 0.36f
+    val trunkMax = if (compactCanvas) 0.54f else 0.62f
+    val trunkLength = safeHeight * (trunkBase + state.light * 0.04f + harmony * 0.1f).coerceIn(0.30f, trunkMax)
+    val rootLength = safeWidth * (0.11f + state.structure * 0.02f)
     val branchDepth = 2 + ((state.totalResources() + state.structure + state.streak) / 5)
     val branchCount = 2 + (state.water / 2) + if (harmony > 0.72f) 1 else 0
 
@@ -873,7 +974,7 @@ private fun generatePlant(
         segments += PlantSegment(base, end, 3.3f - index * 0.35f, SegmentKind.Root, 0)
     }
 
-    val trunkEnd = Offset(base.x + width * imbalanceX, soilY - trunkLength)
+    val trunkEnd = Offset(base.x + safeWidth * imbalanceX, soilY - trunkLength)
     segments += PlantSegment(base, trunkEnd, 10f + state.structure * 0.75f, SegmentKind.Stem, 0)
 
     val sway = ((state.seed % 11) - 5) * 0.012f
@@ -882,7 +983,7 @@ private fun generatePlant(
         val start = Offset(lerp(base.x, trunkEnd.x, t), lerp(base.y, trunkEnd.y, t))
         val direction = if (index % 2 == 0) -1f else 1f
         val angle = -PI / 2 + direction * (0.46 + state.structure * 0.032 + index * 0.08) + sway
-        val length = height * (0.11f + state.water * 0.014f + harmony * 0.06f) * (1f - t * 0.26f)
+        val length = safeHeight * (0.11f + state.water * 0.014f + harmony * 0.06f) * (1f - t * 0.26f)
         growBranch(
             segments = segments,
             start = start,
@@ -900,6 +1001,18 @@ private fun generatePlant(
     }
 
     return segments
+}
+
+private fun plantViewport(
+    width: Float,
+    height: Float,
+): PlantViewport {
+    val narrow = width < 700f
+    val left = width * if (narrow) 0.1f else 0.08f
+    val right = width * if (narrow) 0.9f else 0.92f
+    val top = height * if (narrow) 0.12f else 0.08f
+    val bottom = height * if (narrow) 0.86f else 0.86f
+    return PlantViewport(left = left, right = right, top = top, bottom = bottom)
 }
 
 private fun growBranch(
@@ -966,6 +1079,7 @@ private fun growBranch(
 private fun GrowthControls(
     compact: Boolean,
     state: GrowthState,
+    maxItemsInEachRow: Int,
     onAction: (GrowthAction) -> Unit,
 ) {
     Surface(
@@ -998,7 +1112,7 @@ private fun GrowthControls(
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
-                maxItemsInEachRow = if (compact) 2 else 5,
+                maxItemsInEachRow = maxItemsInEachRow,
             ) {
                 GrowthActionButton("Add Light", "Increase light in the Growth Lab", false) { onAction(GrowthAction.AddLight) }
                 GrowthActionButton("Add Water", "Increase water in the Growth Lab", false) { onAction(GrowthAction.AddWater) }
